@@ -17,16 +17,17 @@ srtnode *loadsrt(FILE *fp, srtnode *head);
 srtnode *genode(FILE *fp, char *line, srtnode *p);
 srtnode *insertnode(srtnode *head, srtnode *p);
 
-void tplus();
-void printnode(srtnode *p);
+void tplus(char *srctime, char *shiftime);
 
-void srtmerge(srtnode *head, srtnode *head1);
+srtnode *srtmerge(srtnode *head, srtnode *head2);
 void node2srt(srtnode *head, FILE *fp);
+void printnode(srtnode *p);
 
 int main(int argc, char **argv)
 {
     FILE *fp;
-    char *help = "Usage: srtmerfter [options] file...\nOptions:\n\t\t-s\t01,500 file\n\t\t-m\tfile1 file2\n\t\t-h\tdisplay this message.\n";
+    srtnode *head;
+    char *help = "Usage: srtmerfter [options] file...\nOptions:\n\t\t-s\t+/-01,500 file\n\t\t-m\tfile1 file2\n\t\t-h\tdisplay this message.\n";
     if(1 == argc)
     {
         printf("%s", help);
@@ -39,12 +40,12 @@ int main(int argc, char **argv)
     }
     else if(0 == strcmp(argv[1], "-s"))
     {
+        srtnode *p;
         if(NULL == (fp = fopen(argv[3], "r")))
         {
             printf("Can't open file:%s\n", argv[3]);
             return -2;
         }
-        srtnode *head;
         head = loadsrt(fp, head);
         fclose(fp);
         int len = strlen(argv[3]);
@@ -57,12 +58,44 @@ int main(int argc, char **argv)
             printf("Can't open file to write:%s\n", argv[3]);
             return -3;
         }
+        p = head;
+        while(p != NULL)
+        {
+            tplus(p->stime, argv[2]);
+            tplus(p->etime, argv[2]);
+            p = p->next;
+        }
         node2srt(head, fp);
         fclose(fp);
         return 0;
     }
     else if(0 == strcmp(argv[1], "-m"))
     {
+        FILE *fp2;
+        srtnode *head2;
+        if(NULL == (fp = fopen(argv[3], "r")))
+        {
+            printf("Can't open file:%s\n", argv[3]);
+            return -2;
+        }
+        else if(NULL == (fp2 = fopen(argv[4], "r")))
+        {
+            printf("Can't open file:%s\n", argv[4]);
+            return -2;
+        }
+        head  = loadsrt(fp,  head);
+        head2 = loadsrt(fp2, head2);
+        fclose(fp);
+        fclose(fp2);
+        strcat(argv[3], ".merged.srt");
+        if(NULL == (fp = fopen(argv[3], "w")))
+        {
+            printf("Can't open file to write:%s\n", argv[3]);
+            return -3;
+        }
+        head = srtmerge(head, head2);
+        node2srt(head, fp);
+        fclose(fp);
     }
     else
     {
@@ -175,16 +208,123 @@ srtnode *insertnode(srtnode *head, srtnode *p)
     return head;
 }
 
-srtnode *tplus(srtnode *head)
+void tplus(char *srctime, char *shiftime)
 {
+    unsigned int ctime, stime;
+    int i, len;
+    len = strlen(shiftime);
+    if(shiftime[0] == '+')
+    {
+        for(i=1; i<len; i++)
+        {
+            if(shiftime[len-i] == ',' || shiftime[len-i] == ':')
+                continue;
+            srctime[12-i] += shiftime[len-i] - '0';
+        }
+        for(i=11; i>=0; i--)
+        {
+            switch(i)
+            {
+                case 0:
+                    if(srctime[i] > '9')
+                    {
+                        srctime[i] = '9';
+                    }
+                    break;
+                case 1:
+                case 4:
+                case 7:
+                case 10:
+                case 11:
+                    if(srctime[i] > '9')
+                    {
+                        srctime[i-1] += 1;
+                        srctime[i]   += '0' - '9';
+                    }
+                    break;
+                case 3:
+                case 6:
+                    if(srctime[i] > '5')
+                    {
+                        srctime[i-2] += 1;
+                        srctime[i]    = '0';
+                    }
+                    break;
+                case 9:
+                    if(srctime[i] > '9')
+                    {
+                        srctime[i-2] += 1;
+                        srctime[i]   += '0' - '9';
+                    }
+                    break;
+                default:break;
+            }
+        }
+    }
+    else if(shiftime[0] == '-')
+    {
+
+        for(i=1; i<len; i++)
+        {
+            if(shiftime[len-i] == ',' || shiftime[len-i] == ':')
+                continue;
+            srctime[12-i] -= shiftime[len-i] - '0';
+        }
+        for(i=11; i>=0; i--)
+        {
+            switch(i)
+            {
+                case 0:
+                    if(srctime[i] < '0')
+                    {
+                        srctime[i] = '0';
+                    }
+                    break;
+                case 1:
+                case 4:
+                case 7:
+                case 10:
+                case 11:
+                    if(srctime[i] < '0')
+                    {
+                        srctime[i-1] -= 1;
+                        srctime[i]   += 10;
+                    }
+                    break;
+                case 3:
+                case 6:
+                    if(srctime[i] < '0')
+                    {
+                        srctime[i-2] -= 1;
+                        srctime[i]   += 6;
+                    }
+                    break;
+                case 9:
+                    if(srctime[i] < '0')
+                    {
+                        srctime[i-2] -= 1;
+                        srctime[i]   += 10;
+                    }
+                    break;
+                default:break;
+            }
+        }
+    }
 }
 
-void srtmerge(srtnode *head, srtnode *head1)
+//This is not a have-to, another way is fprintf the bigger one
+srtnode *srtmerge(srtnode *head, srtnode *head2)
 {
 }
 
 void node2srt(srtnode *head, FILE *fp)
 {
+    int i = 1;
+    while(head != NULL)
+    {
+        fprintf(fp, "%d\r\n%s --> %s\r\n%s\r\n", i++, head->stime, head->etime, head->content);
+        head = head->next;
+    }
 }
 
 void printnode(srtnode *p)
