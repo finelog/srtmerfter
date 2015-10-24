@@ -13,17 +13,15 @@ struct srtnode {
     char etime[13];
 };
 
-srtnode *loadsrt(FILE *fp);
+srtnode *loadsrt(FILE *fp, srtnode *head);
 srtnode *genode(FILE *fp, char *line, srtnode *p);
-void insertnode( srtnode *p);
+srtnode *insertnode(srtnode *head, srtnode *p);
+
 void tplus();
 void printnode(srtnode *p);
 
-void srtshift(char *t, srtnode *head, srtnode *tail);
 void srtmerge(srtnode *head, srtnode *head1);
-void node2srt(srtnode *head, srtnode *tail, FILE *fp);
-
-        srtnode *head, *tail;
+void node2srt(srtnode *head, FILE *fp);
 
 int main(int argc, char **argv)
 {
@@ -46,28 +44,21 @@ int main(int argc, char **argv)
             printf("Can't open file:%s\n", argv[3]);
             return -2;
         }
-        head = loadsrt(fp);
+        srtnode *head;
+        head = loadsrt(fp, head);
         fclose(fp);
-        while(head != NULL)
-        {
-            printnode(head);
-            head = head->next;
-        }
-        /*
         int len = strlen(argv[3]);
         argv[3][len-3] = 'n';
         argv[3][len-2] = 'e';
         argv[3][len-1] = 'w';
         strcat(argv[3], ".srt");
-        printf("%s\n", argv[3]);
         if(NULL == (fp = fopen(argv[3], "w")))
         {
             printf("Can't open file to write:%s\n", argv[3]);
             return -3;
         }
-        node2srt(head, tail, fp);
+        node2srt(head, fp);
         fclose(fp);
-        */
         return 0;
     }
     else if(0 == strcmp(argv[1], "-m"))
@@ -80,14 +71,12 @@ int main(int argc, char **argv)
     return 0;
 }
 
-srtnode *loadsrt(FILE *fp)
+srtnode *loadsrt(FILE *fp, srtnode *head)
 {
-    char line[100];
+    char line[103];
     fgets(line, 100, fp);
     head = genode(fp, line, head);
-    printf("head:%x,tail:%x.\n", head, tail);
-    tail = head;
-    printf("head:%x,tail:%x.\n", head, tail);
+    head = insertnode(head, head);
     while(NULL != fgets(line, 100, fp))
     {
         if(0 == strcmp(line, "\r\n"))
@@ -95,52 +84,70 @@ srtnode *loadsrt(FILE *fp)
             continue;
         }
         srtnode *p;
-        p = genode(fp, line, p);
-        insertnode( p);
-        //printnode(p);
-        printf("head:%x,tail:%x.\n", head, tail);
+        p    = genode(fp, line, p);
+        head = insertnode(head, p);
     }
-    head->prev = NULL;
-    tail->next = NULL;
     return head;
 }
 
 srtnode *genode(FILE *fp, char *line, srtnode *p)
 {
+    int length;
     p = malloc(sizeof(srtnode));
+    p->prev = NULL;
+    p->next = NULL;
     fgets(p->stime, 13, fp);
     fgets(line, 6, fp);
     fgets(p->etime, 13, fp);
     fgets(line, 100, fp);
-    fgets(p->content, 100, fp);
-    fgets(line, 100, fp);
+    fgets(p->content, 250, fp);
+    if(NULL == fgets(line, 100, fp))
+        return p;
+    length = strlen(p->content);
     while(0 != strcmp(line, "\r\n"))
     {
-        strcat(p->content, line);
-        if(NULL == fgets(line, 100, fp))
+        length += strlen(line);
+        if(length < sizeof(p->content))
         {
-            break;
+            strcat(p->content, line);
+            fgets(line, 100, fp);
+        }
+        else
+        {
+            strcat(p->content, "\r\n");
+            do{
+                if(NULL == fgets(line, 100, fp))
+                {
+                    break;
+                }
+            }while(0 != strcmp(line, "\r\n"));
         }
     }
     return p;
 }
 
-void insertnode( srtnode *p)
+srtnode *insertnode(srtnode *head, srtnode *p)
 {
+    static srtnode *tail = NULL;
     srtnode *q, *t;
-    if(strcmp(p->stime, tail->stime) >= 0)
+    if(p == head)
+    {
+        tail = head;
+        return head;
+    }
+    else if(strcmp(p->stime, tail->stime) >= 0)
     {
         tail->next = p;
         p->prev    = tail;
         tail       = p;
-        return;
+        return head;
     }
     else if(strcmp(p->stime, head->stime) <= 0)
     {
         p->next    = head;
         head->prev = p;
         head       = p;
-        return;
+        return head;
     }
     else if(strcmp(p->stime, head->stime) <= -strcmp(p->stime, tail->stime))
     {
@@ -165,7 +172,19 @@ void insertnode( srtnode *p)
     p->prev = t;
     p->next = q;
     q->prev = p;
-    return;
+    return head;
+}
+
+srtnode *tplus(srtnode *head)
+{
+}
+
+void srtmerge(srtnode *head, srtnode *head1)
+{
+}
+
+void node2srt(srtnode *head, FILE *fp)
+{
 }
 
 void printnode(srtnode *p)
