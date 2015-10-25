@@ -18,12 +18,15 @@ srtnode *genode(FILE *fp, char *line, srtnode *p);
 srtnode *insertnode(srtnode *head, srtnode *p);
 
 void tplus(char *srctime, char *shiftime);
+void node2srt(srtnode *head, FILE *fp);
 
 srtnode *srtmerge(srtnode *head, srtnode *head2);
-void node2srt(srtnode *head, FILE *fp);
-void printnode(srtnode *p);
 
 void freesrt(srtnode *head);
+
+//void printsrt(srtnode *p);
+//void printnode(srtnode *p);
+
 
 int main(int argc, char **argv)
 {
@@ -53,11 +56,6 @@ int main(int argc, char **argv)
         }
         head = loadsrt(fp, head);
         fclose(fp);
-        int len = strlen(argv[3]);
-        argv[3][len-3] = 'n';
-        argv[3][len-2] = 'e';
-        argv[3][len-1] = 'w';
-        strcat(argv[3], ".srt");
         if(NULL == (fp = fopen(argv[3], "w")))
         {
             printf("Can't open file to write:%s\n", argv[3]);
@@ -78,30 +76,36 @@ int main(int argc, char **argv)
     else if(0 == strcmp(argv[1], "-m"))
     {
         FILE *fp2;
+        int  len;
         srtnode *head2;
-        if(NULL == (fp = fopen(argv[3], "r")))
+        if(NULL == (fp = fopen(argv[2], "r")))
         {
-            printf("Can't open file:%s\n", argv[3]);
+            printf("Can't open file:%s\n", argv[2]);
             return -2;
         }
-        else if(NULL == (fp2 = fopen(argv[4], "r")))
+        else if(NULL == (fp2 = fopen(argv[3], "r")))
         {
-            printf("Can't open file:%s\n", argv[4]);
+            printf("Can't open file:%s\n", argv[3]);
             return -2;
         }
         head  = loadsrt(fp,  head);
         head2 = loadsrt(fp2, head2);
         fclose(fp);
         fclose(fp2);
-        strcat(argv[3], ".merged.srt");
-        if(NULL == (fp = fopen(argv[3], "w")))
+        len = strlen(argv[2]);
+        argv[2][len-3] = 'm';
+        argv[2][len-2] = 'e';
+        argv[2][len-1] = 'r';
+        strcat(argv[2], "ged.srt");
+        if(NULL == (fp = fopen(argv[2], "w")))
         {
-            printf("Can't open file to write:%s\n", argv[3]);
+            printf("Can't open file to write:%s\n", argv[2]);
             return -3;
         }
         head = srtmerge(head, head2);
         node2srt(head, fp);
         fclose(fp);
+        freesrt(head);
     }
     else
     {
@@ -245,7 +249,7 @@ void tplus(char *srctime, char *shiftime)
                     if(srctime[i] > '9')
                     {
                         srctime[i-1] += 1;
-                        srctime[i]   += '0' - '9';
+                        srctime[i]   -= 10;
                     }
                     break;
                 case 3:
@@ -260,7 +264,7 @@ void tplus(char *srctime, char *shiftime)
                     if(srctime[i] > '9')
                     {
                         srctime[i-2] += 1;
-                        srctime[i]   += '0' - '9';
+                        srctime[i]   -= 10;
                     }
                     break;
                 default:break;
@@ -318,9 +322,53 @@ void tplus(char *srctime, char *shiftime)
     }
 }
 
-//This is not a have-to, another way is fprintf the bigger one
+//This is not a have-to, another way is fprintf the smaller one
 srtnode *srtmerge(srtnode *head, srtnode *head2)
 {
+    srtnode *temp, *stay, *move, *head0;
+    move  = strcmp(head->stime, head2->stime) < 0 ? head : head2 ;
+    stay  = move != head ? head : head2 ;
+    head0 = move;
+    while(move != NULL)
+    {
+        if(strcmp(move->stime, stay->stime) <= 0)
+        {
+            if(move->next == NULL)
+            {
+                break;
+            }
+            move = move->next;
+            continue;
+        }
+        temp             = stay;
+        stay             = stay->next;
+        temp->prev       = move->prev;
+        move->prev->next = temp;
+        if(stay == NULL)
+        {
+            move->prev = temp;
+            temp->next = move;
+            break;
+        }
+        else if(strcmp(move->stime, stay->stime) > 0 )
+        {
+            temp = move;
+            move = stay;
+            stay = temp;
+        }
+        else
+        {
+            move->prev = temp;
+            temp->next = move;
+            stay->prev = NULL;
+        }
+    }
+    if(stay != NULL)
+    {
+        stay->prev = move;
+        move->next = stay;
+    }
+    return head0;
 }
 
 void node2srt(srtnode *head, FILE *fp)
@@ -333,11 +381,23 @@ void node2srt(srtnode *head, FILE *fp)
     }
 }
 
+/*
 void printnode(srtnode *p)
 {
-    printf("%s --> %s", p->stime, p->etime);
+    printf("%s --> %s ", p->stime, p->etime);
     printf("%s", p->content);
 }
+
+void printsrt(srtnode *p)
+{
+    while(p != NULL)
+    {
+        printf("%s --> %s ", p->stime, p->etime);
+        printf("%s", p->content);
+        p = p->next;
+    }
+}
+*/
 
 void freesrt(srtnode *head)
 {
