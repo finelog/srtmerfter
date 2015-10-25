@@ -23,11 +23,16 @@ srtnode *srtmerge(srtnode *head, srtnode *head2);
 void node2srt(srtnode *head, FILE *fp);
 void printnode(srtnode *p);
 
+void freesrt(srtnode *head);
+
 int main(int argc, char **argv)
 {
     FILE *fp;
     srtnode *head;
-    char *help = "Usage: srtmerfter [options] file...\nOptions:\n\t\t-s\t+/-01,500 file\n\t\t-m\tfile1 file2\n\t\t-h\tdisplay this message.\n";
+    char *help = "Usage: srtmerfter [options] file...\nOptions:\n"
+                 "\t-s +/-01,500 file\n"
+                 "\t-m file1 file2\n"
+                 "\t-h display this message.\n";
     if(1 == argc)
     {
         printf("%s", help);
@@ -67,6 +72,7 @@ int main(int argc, char **argv)
         }
         node2srt(head, fp);
         fclose(fp);
+        freesrt(head);
         return 0;
     }
     else if(0 == strcmp(argv[1], "-m"))
@@ -331,4 +337,15 @@ void printnode(srtnode *p)
 {
     printf("%s --> %s", p->stime, p->etime);
     printf("%s", p->content);
+}
+
+void freesrt(srtnode *head)
+{
+    srtnode *p;
+    p = head->next;
+    while(p != NULL)
+    {
+        free(p->prev);
+        p = p->next;
+    }
 }
