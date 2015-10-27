@@ -287,7 +287,13 @@ void tplus(char *srctime, char *shiftime)
                 case 0:
                     if(srctime[i] < '0')
                     {
-                        srctime[i] = '0';
+                        int j=0;
+                        for(j=0; i<12; j++)
+                        {
+                            if(srctime[j]==':' || srctime[j]==',')
+                                continue;
+                            srctime[j] = '0';
+                        }
                     }
                     break;
                 case 1:
@@ -323,6 +329,7 @@ void tplus(char *srctime, char *shiftime)
 }
 
 //This is not a have-to, another way is fprintf the smaller one
+/*
 srtnode *srtmerge(srtnode *head, srtnode *head2)
 {
     srtnode *temp, *stay, *move, *head0;
@@ -367,6 +374,52 @@ srtnode *srtmerge(srtnode *head, srtnode *head2)
     {
         stay->prev = move;
         move->next = stay;
+    }
+    return head0;
+}
+*/
+//another way to merge srt files
+//this is the more quick way
+srtnode *srtmerge(srtnode *head, srtnode *head2)
+{
+    srtnode *temp, *line2, *line1, *head0;
+    line1  = strcmp(head->stime, head2->stime) < 0 ? head : head2 ;
+    line2  = line1 != head ? head : head2 ;
+    head0 = line1;
+    while(line1 != NULL)
+    {
+        if(strcmp(line1->stime, line2->stime) <= 0)
+        {
+            if(line1->next == NULL)
+            {
+                break;
+            }
+            line1 = line1->next;
+            continue;
+        }
+        temp = line2;
+        while(line2->next != NULL)
+        {
+            line2 = line2->next;
+            if(strcmp(line2->stime, line1->stime) > 0)
+                break;
+        }
+        temp->prev        = line1->prev;
+        line1->prev->next = temp;
+        if(temp == line2)
+        {
+            line1->prev = temp;
+            temp->next  = line1;
+            line2       = NULL;
+            break;
+        }
+        line1->prev       = line2->prev;
+        line2->prev->next = line1;
+    }
+    if(line2 != NULL)
+    {
+        line2->prev = line1;
+        line1->next = line2;
     }
     return head0;
 }
