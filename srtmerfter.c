@@ -27,7 +27,6 @@ void freesrt(srtnode *head);
 //void printsrt(srtnode *p);
 //void printnode(srtnode *p);
 
-
 int main(int argc, char **argv)
 {
     FILE *fp;
@@ -153,7 +152,8 @@ srtnode *genode(FILE *fp, char *line, srtnode *p)
         if(length < sizeof(p->content))
         {
             strcat(p->content, line);
-            fgets(line, 100, fp);
+            if(NULL == fgets(line, 100, fp))
+                break;
         }
         else
         {
@@ -161,7 +161,7 @@ srtnode *genode(FILE *fp, char *line, srtnode *p)
             do{
                 if(NULL == fgets(line, 100, fp))
                 {
-                    break;
+                   return p;
                 }
             }while(0 != strcmp(line, "\r\n"));
         }
@@ -329,7 +329,6 @@ void tplus(char *srctime, char *shiftime)
 }
 
 //This is not a have-to, another way is fprintf the smaller one
-/*
 srtnode *srtmerge(srtnode *head, srtnode *head2)
 {
     srtnode *temp, *stay, *move, *head0;
@@ -377,9 +376,10 @@ srtnode *srtmerge(srtnode *head, srtnode *head2)
     }
     return head0;
 }
-*/
+
 //another way to merge srt files
-//this is the more quick way
+//this is the more quick way,maybe
+/*
 srtnode *srtmerge(srtnode *head, srtnode *head2)
 {
     srtnode *temp, *line2, *line1, *head0;
@@ -423,6 +423,7 @@ srtnode *srtmerge(srtnode *head, srtnode *head2)
     }
     return head0;
 }
+*/
 
 void node2srt(srtnode *head, FILE *fp)
 {
