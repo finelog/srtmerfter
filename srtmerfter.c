@@ -13,16 +13,19 @@ struct srtnode {
     char etime[13];
 };
 
-srtnode *loadsrt(FILE *fp, srtnode *head);
-srtnode *genode(FILE *fp, char *line, srtnode *p);
+//function used commonly
+char *detecteol(FILE *fp);
+srtnode *loadsrt(FILE *fp, srtnode *head, char *EOL);
+srtnode *genode(FILE *fp, char *line, srtnode *p, char *EOL);
 srtnode *insertnode(srtnode *head, srtnode *p);
-
-void tplus(char *srctime, char *shiftime);
-void node2srt(srtnode *head, FILE *fp);
-
-srtnode *srtmerge(srtnode *head, srtnode *head2);
-
 void freesrt(srtnode *head);
+void node2srt(srtnode *head, FILE *fp, char *EOL);
+
+//funtion used by shift srt
+void tplus(char *srctime, char *shiftime);
+
+//function used by merge srt
+srtnode *srtmerge(srtnode *head, srtnode *head2);
 
 //void printsrt(srtnode *p);
 //void printnode(srtnode *p);
@@ -38,27 +41,35 @@ int main(int argc, char **argv)
     if(1 == argc)
     {
         printf("%s", help);
-        return -1;
+        return 1;
     }
     else if(2 == argc && 0 == strcmp(argv[1], "-h"))
     {
         printf("%s", help);
-        return -1;
+        return 1;
     }
     else if(0 == strcmp(argv[1], "-s"))
     {
         srtnode *p;
+        char *EOL  = "\r\n";
         if(NULL == (fp = fopen(argv[3], "r")))
         {
             printf("Can't open file:%s\n", argv[3]);
-            return -2;
+            return 2;
         }
-        head = loadsrt(fp, head);
+        EOL = detecteol(fp);
+        if(NULL == EOL)
+        {
+            printf("Cannot process Mac file format,"
+                   "please convert it to Unix or Dos format.\n");
+            return 4;
+        }
+        head = loadsrt(fp, head, EOL);
         fclose(fp);
         if(NULL == (fp = fopen(argv[3], "w")))
         {
             printf("Can't open file to write:%s\n", argv[3]);
-            return -3;
+            return 3;
         }
         p = head;
         while(p != NULL)
@@ -67,7 +78,7 @@ int main(int argc, char **argv)
             tplus(p->etime, argv[2]);
             p = p->next;
         }
-        node2srt(head, fp);
+        node2srt(head, fp, EOL);
         fclose(fp);
         freesrt(head);
         return 0;
@@ -77,20 +88,46 @@ int main(int argc, char **argv)
         FILE *fp2;
         int  len;
         srtnode *head2;
+        char *EOL  = "\r\n";
+        char *EOL2 = "\r\n";
         if(NULL == (fp = fopen(argv[2], "r")))
         {
             printf("Can't open file:%s\n", argv[2]);
-            return -2;
+            return 2;
         }
         else if(NULL == (fp2 = fopen(argv[3], "r")))
         {
             printf("Can't open file:%s\n", argv[3]);
-            return -2;
+            return 2;
         }
-        head  = loadsrt(fp,  head);
-        head2 = loadsrt(fp2, head2);
+
+        EOL  = detecteol(fp);
+        EOL2 = detecteol(fp2);
+        if(NULL == EOL)
+        {
+            printf("Cannot process file1 Mac file format,"
+                   "please convert it to Unix or Dos format.\n");
+            return 4;
+        }
+        else if(NULL == EOL2)
+        {
+            printf("Cannot process file2 Mac file format,"
+                   "please convert it to Unix or Dos format.\n");
+            return 4;
+        }
+        else if(0 != strcmp(EOL, EOL2))
+        {
+            printf("Cannot process different file formats at one time,"
+                   "please convert it to the same Unix or Dos format.\n");
+            return 4;
+        }
+
+        head  = loadsrt(fp,  head, EOL);
+        head2 = loadsrt(fp2, head2, EOL);
+
         fclose(fp);
         fclose(fp2);
+
         len = strlen(argv[2]);
         argv[2][len-3] = 'm';
         argv[2][len-2] = 'e';
@@ -99,10 +136,10 @@ int main(int argc, char **argv)
         if(NULL == (fp = fopen(argv[2], "w")))
         {
             printf("Can't open file to write:%s\n", argv[2]);
-            return -3;
+            return 3;
         }
         head = srtmerge(head, head2);
-        node2srt(head, fp);
+        node2srt(head, fp, EOL);
         fclose(fp);
         freesrt(head);
     }
@@ -113,26 +150,53 @@ int main(int argc, char **argv)
     return 0;
 }
 
-srtnode *loadsrt(FILE *fp, srtnode *head)
+char *detecteol(FILE *fp)
+{
+    int c;
+    do{
+        c = fgetc(fp);
+    }while(c != '\r' && c != '\n');
+    if(c == '\r')
+    {
+        c = fgetc(fp);
+        if(c == '\n')
+            c = 'd';
+        else
+            c = 'm';
+    }
+    else if(c == '\n')
+        c = 'u';
+    else
+        c = 'm';
+    rewind(fp);
+    switch(c)
+    {
+        case 'd': return "\r\n";
+        case 'u': return "\n";
+        default : return NULL;
+    }
+}
+
+srtnode *loadsrt(FILE *fp, srtnode *head, char *EOL)
 {
     char line[103];
     fgets(line, 100, fp);
-    head = genode(fp, line, head);
+    head = genode(fp, line, head, EOL);
     head = insertnode(head, head);
     while(NULL != fgets(line, 100, fp))
     {
-        if(0 == strcmp(line, "\r\n"))
+        if(0 == strcmp(line, EOL))
         {
             continue;
         }
         srtnode *p;
-        p    = genode(fp, line, p);
+        p    = genode(fp, line, p, EOL);
         head = insertnode(head, p);
     }
     return head;
 }
 
-srtnode *genode(FILE *fp, char *line, srtnode *p)
+srtnode *genode(FILE *fp, char *line, srtnode *p, char *EOL)
 {
     int length;
     p = malloc(sizeof(srtnode));
@@ -146,7 +210,7 @@ srtnode *genode(FILE *fp, char *line, srtnode *p)
     if(NULL == fgets(line, 100, fp))
         return p;
     length = strlen(p->content);
-    while(0 != strcmp(line, "\r\n"))
+    while(0 != strcmp(line, EOL))
     {
         length += strlen(line);
         if(length < sizeof(p->content))
@@ -157,13 +221,13 @@ srtnode *genode(FILE *fp, char *line, srtnode *p)
         }
         else
         {
-            strcat(p->content, "\r\n");
+            strcat(p->content, EOL);
             do{
                 if(NULL == fgets(line, 100, fp))
                 {
                    return p;
                 }
-            }while(0 != strcmp(line, "\r\n"));
+            }while(0 != strcmp(line, EOL));
         }
     }
     return p;
@@ -425,33 +489,15 @@ srtnode *srtmerge(srtnode *head, srtnode *head2)
 }
 */
 
-void node2srt(srtnode *head, FILE *fp)
+void node2srt(srtnode *head, FILE *fp, char *EOL)
 {
     int i = 1;
     while(head != NULL)
     {
-        fprintf(fp, "%d\r\n%s --> %s\r\n%s\r\n", i++, head->stime, head->etime, head->content);
+        fprintf(fp, "%d%s%s --> %s%s%s%s", i++, EOL, head->stime, head->etime, EOL, head->content, EOL);
         head = head->next;
     }
 }
-
-/*
-void printnode(srtnode *p)
-{
-    printf("%s --> %s ", p->stime, p->etime);
-    printf("%s", p->content);
-}
-
-void printsrt(srtnode *p)
-{
-    while(p != NULL)
-    {
-        printf("%s --> %s ", p->stime, p->etime);
-        printf("%s", p->content);
-        p = p->next;
-    }
-}
-*/
 
 void freesrt(srtnode *head)
 {
