@@ -13,6 +13,10 @@ struct srtnode {
     char etime[13];
 };
 
+//function needed
+int readargs(int argc, char **argv);
+int errhandler(int errnum, char **argv);
+
 //function used commonly
 char *detecteol(FILE *fp);
 srtnode *loadsrt(FILE *fp, srtnode *head, char *EOL);
@@ -22,9 +26,11 @@ void freesrt(srtnode *head);
 void node2srt(srtnode *head, FILE *fp, char *EOL);
 
 //funtion used by shift srt
+int  entershift(char **argv);
 void tplus(char *srctime, char *shiftime);
 
 //function used by merge srt
+    int  entermerge(char **argv);
 srtnode *srtmerge(srtnode *head, srtnode *head2);
 
 //void printsrt(srtnode *p);
@@ -32,121 +38,146 @@ srtnode *srtmerge(srtnode *head, srtnode *head2);
 
 int main(int argc, char **argv)
 {
-    FILE *fp;
-    srtnode *head;
-    char *help = "Usage: srtmerfter [options] file...\nOptions:\n"
-                 "\t-s +/-01,500 file\n"
-                 "\t-m file1 file2\n"
-                 "\t-h display this message.\n";
-    if(1 == argc)
-    {
-        printf("%s", help);
-        return 1;
-    }
-    else if(2 == argc && 0 == strcmp(argv[1], "-h"))
-    {
-        printf("%s", help);
-        return 1;
-    }
-    else if(0 == strcmp(argv[1], "-s"))
-    {
-        srtnode *p;
-        char *EOL  = "\r\n";
-        if(NULL == (fp = fopen(argv[3], "r")))
-        {
-            printf("Can't open file:%s\n", argv[3]);
-            return 2;
-        }
-        EOL = detecteol(fp);
-        if(NULL == EOL)
-        {
-            printf("Cannot process Mac file format,"
-                   "please convert it to Unix or Dos format.\n");
-            return 4;
-        }
-        head = loadsrt(fp, head, EOL);
-        fclose(fp);
-        if(NULL == (fp = fopen(argv[3], "w")))
-        {
-            printf("Can't open file to write:%s\n", argv[3]);
-            return 3;
-        }
-        p = head;
-        while(p != NULL)
-        {
-            tplus(p->stime, argv[2]);
-            tplus(p->etime, argv[2]);
-            p = p->next;
-        }
-        node2srt(head, fp, EOL);
-        fclose(fp);
-        freesrt(head);
-        return 0;
-    }
-    else if(0 == strcmp(argv[1], "-m"))
-    {
-        FILE *fp2;
-        int  len;
-        srtnode *head2;
-        char *EOL  = "\r\n";
-        char *EOL2 = "\r\n";
-        if(NULL == (fp = fopen(argv[2], "r")))
-        {
-            printf("Can't open file:%s\n", argv[2]);
-            return 2;
-        }
-        else if(NULL == (fp2 = fopen(argv[3], "r")))
-        {
-            printf("Can't open file:%s\n", argv[3]);
-            return 2;
-        }
+    int  errnum;
+    errnum = readargs(argc, argv);
+    if(errnum > 0)
+        return errhandler(errnum, argv);
 
-        EOL  = detecteol(fp);
-        EOL2 = detecteol(fp2);
-        if(NULL == EOL)
-        {
-            printf("Cannot process file1 Mac file format,"
-                   "please convert it to Unix or Dos format.\n");
-            return 4;
-        }
-        else if(NULL == EOL2)
-        {
-            printf("Cannot process file2 Mac file format,"
-                   "please convert it to Unix or Dos format.\n");
-            return 4;
-        }
-        else if(0 != strcmp(EOL, EOL2))
-        {
-            printf("Cannot process different file formats at one time,"
-                   "please convert it to the same Unix or Dos format.\n");
-            return 4;
-        }
+    return 0;
+}
 
-        head  = loadsrt(fp,  head, EOL);
-        head2 = loadsrt(fp2, head2, EOL);
-
-        fclose(fp);
-        fclose(fp2);
-
-        len = strlen(argv[2]);
-        argv[2][len-3] = 'm';
-        argv[2][len-2] = 'e';
-        argv[2][len-1] = 'r';
-        strcat(argv[2], "ged.srt");
-        if(NULL == (fp = fopen(argv[2], "w")))
-        {
-            printf("Can't open file to write:%s\n", argv[2]);
-            return 3;
-        }
-        head = srtmerge(head, head2);
-        node2srt(head, fp, EOL);
-        fclose(fp);
-        freesrt(head);
-    }
-    else
+int readargs(int argc, char **argv)
+{
+    switch(argc)
     {
-        printf("%s", help);
+        case 1:
+        case 2:
+        case 3:
+            return 1;
+        default:
+            if(strcmp("-s", argv[1]) != 0 && strcmp("-m", argv[1]) != 0)
+                return 2;
+            break;
     }
+    if(strcmp("-s", argv[1]) == 0)
+        return entershift(argv);
+    else if(strcmp("-m", argv[1]) == 0)
+        return entermerge(argv);
+}
+
+/* error numbers:
+ * 1: args error
+ * 21: shift srt: open srt error
+ * 22: shift srt: file format error
+ * 23: write srt file error
+ * 311: merge srt: open first srt error
+ * 312: merge srt: open second srt error
+ * 321: merge srt: first file format error
+ * 322: merge srt: second file format error
+ * 323: merge srt: two file format diff error
+ * 33:  merge srt: write srt file error
+ */
+int errhandler(int errnum, char **argv)
+{
+    switch(errnum)
+    {
+        case   1:
+            printf("%s", "Usage: srtmerfter [options] file...\nOptions:\n"
+                         "\t-s +/-01,500 file\n"
+                         "\t-m file1 file2\n"
+                         "\t-h display this message.\n");
+                break;
+        case  21:
+            printf("Open file failed:%s\n", argv[3]);
+            break;
+        case  22:
+            printf("File format error:%s\nCan't process Mac file,please convert it to Unix/Dos file.\n", argv[3]);
+            break;
+        case 311:
+            printf("Open file failed:%s\n", argv[2]);
+            break;
+        case 312:
+            printf("Open file failed:%s\n", argv[3]);
+            break;
+        case 321:
+            printf("File format error:%s\nCan't process Mac file,please convert it to Unix/Dos file.\n", argv[2]);
+            break;
+        case 322:
+            printf("File format error:%s\nCan't process Mac file,please convert it to Unix/Dos file.\n", argv[3]);
+            break;
+        case 323:
+            printf("File format error:\nCan't merge two different formats files,please convert them to the same fornat.\n");
+            break;
+        case  23:
+        case  33:
+            printf("Writing file to disk failed.\n");
+            break;
+    }
+    return errnum;
+}
+
+int entershift(char **argv)
+{
+    FILE    *fp;
+    srtnode *head, *p;
+    char    *EOL = "\r\n";
+
+    if(NULL == (fp = fopen(argv[3], "r")))
+        return 21;
+    EOL = detecteol(fp);
+    if(NULL == EOL)
+        return 22;
+    head = loadsrt(fp, head, EOL);
+    fclose(fp);
+    if(NULL == (fp = fopen(argv[3], "w")))
+        return 23;
+    p = head;
+    while(p)
+    {
+        tplus(p->stime, argv[2]);
+        tplus(p->etime, argv[2]);
+        p = p->next;
+    }
+    node2srt(head, fp, EOL);
+    freesrt(head);
+    return 0;
+}
+
+int entermerge(char **argv)
+{
+    FILE    *fp, *fp2;
+    srtnode *head, *head2;
+    int  len;
+    char *EOL  = "\r\n";
+    char *EOL2 = "\r\n";
+
+    if(NULL == (fp = fopen(argv[2], "r")))
+        return 311;
+    else if(NULL == (fp2 = fopen(argv[3], "r")))
+        return 312;
+    EOL  = detecteol(fp);
+    EOL2 = detecteol(fp2);
+    if(NULL == EOL)
+        return 321;
+    else if(NULL == EOL2)
+        return 322;
+    else if(0 != strcmp(EOL, EOL2))
+        return 323;
+    head  = loadsrt(fp,  head,  EOL);
+    head2 = loadsrt(fp2, head2, EOL);
+    fclose(fp);
+    fclose(fp2);
+
+    len = strlen(argv[2]);
+    argv[2][len-3] = 'm';
+    argv[2][len-2] = 'e';
+    argv[2][len-1] = 'r';
+    strcat(argv[2], "ged.srt");
+    if(NULL == (fp = fopen(argv[2], "w")))
+        return 33;
+    head = srtmerge(head, head2);
+    node2srt(head, fp, EOL);
+    freesrt(head);
     return 0;
 }
 
@@ -497,6 +528,7 @@ void node2srt(srtnode *head, FILE *fp, char *EOL)
         fprintf(fp, "%d%s%s --> %s%s%s%s", i++, EOL, head->stime, head->etime, EOL, head->content, EOL);
         head = head->next;
     }
+    fclose(fp);
 }
 
 void freesrt(srtnode *head)
