@@ -383,7 +383,7 @@ void tplus(char *srctime, char *shiftime)
                     if(srctime[i] < '0')
                     {
                         int j=0;
-                        for(j=0; i<12; j++)
+                        for(j=0; j<12; j++)
                         {
                             if(srctime[j]==':' || srctime[j]==',')
                                 continue;
@@ -535,9 +535,13 @@ void freesrt(srtnode *head)
 {
     srtnode *p;
     p = head->next;
-    while(p != NULL)
+    while(p)
     {
-        free(p->prev);
-        p = p->next;
+        free(head);
+        head = NULL;
+        head = p;
+        p    = p->next;
     }
+    free(head);
+    head = NULL;
 }
