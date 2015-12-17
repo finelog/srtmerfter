@@ -18,6 +18,7 @@ char *errmsg[] = {
 /* 1 */ "Open File Error, Please Check If File Exist.",
 /* 2 */ "File Format Error, Can't Process Mac File Format.",
 /* 3 */ "Write Srt File Error, Can't Write File To Disk.",
+/* 4 */ "Load File Error, Please check if file is empty."
 };
 
 //function in main
@@ -64,9 +65,9 @@ int main(int argc, char **argv)
                 shiftsrt(argv[2], argv[i]);
             break;
         case 2:
-            mergesrt(argv[3], argv[4]);
+            mergesrt(argv[2], argv[3]);
             break;
-        defalt: break;
+        default: break;
     }
 
     return 0;
@@ -86,9 +87,9 @@ int readargs(int argc, char **argv)
             else
                 return 1;
         default:
-            if(strcmp("-s", argv[1]) != 0)
+            if(strcmp("-s", argv[1]) == 0)
                 return 3;
-            else if(strcmp("-m", argv[1]) != 0)
+            else if(strcmp("-m", argv[1]) == 0)
                 return 2;
             else if('-' == argv[1][0])
                 return 0;
@@ -113,22 +114,28 @@ int shiftsrt(char *time, char *file)
     {
         errno = 1;
         perror(file);
-        return 1;
+        return errno;
     }
     EOL = detecteol(fp);
     if(NULL == EOL)
     {
         errno = 2;
         perror(file);
-        return 2;
+        return errno;
     }
     head = loadsrt(fp, head, EOL);
+    if(NULL == head)
+    {
+        errno = 4;
+        perror(file);
+        return errno;
+    }
     fclose(fp);
     if(NULL == (fp = fopen(file, "w")))
     {
         errno = 3;
         perror(file);
-        return 3;
+        return errno;
     }
     p = head;
     while(p)
@@ -155,13 +162,13 @@ int mergesrt(char *firstsrt, char *secondsrt)
     {
         errno = 1;
         perror(firstsrt);
-        return 1;
+        return errno;
     }
     else if(NULL == (fp2 = fopen(secondsrt, "r")))
     {
         errno = 1;
         perror(secondsrt);
-        return 1;
+        return errno;
     }
     EOL  = detecteol(fp);
     EOL2 = detecteol(fp2);
@@ -169,17 +176,28 @@ int mergesrt(char *firstsrt, char *secondsrt)
     {
         errno = 2;
         perror(firstsrt);
-        return 2;
+        return errno;
     }
     else if(NULL == EOL2)
     {
         errno = 2;
         perror(secondsrt);
-        return 2;
+        return errno;
     }
-
     head  = loadsrt(fp,  head,  EOL);
     head2 = loadsrt(fp2, head2, EOL2);
+    if(NULL == head)
+    {
+        errno = 4;
+        perror(firstsrt);
+        return errno;
+    }
+    else if(NULL == head2)
+    {
+        errno = 4;
+        perror(secondsrt);
+        return errno;
+    }
     fclose(fp);
     fclose(fp2);
 
@@ -192,7 +210,7 @@ int mergesrt(char *firstsrt, char *secondsrt)
     {
         errno = 3;
         perror(firstsrt);
-        return 3;
+        return errno;
     }
     head = mergelist(head, head2);
     node2srt(head, fp, EOL);
@@ -334,7 +352,6 @@ srtnode *insertnode(srtnode *head, srtnode *p)
 
 void tplus(char *srctime, char *shiftime)
 {
-    unsigned int ctime, stime;
     int i, len;
     len = strlen(shiftime);
     if(shiftime[0] == '+')
