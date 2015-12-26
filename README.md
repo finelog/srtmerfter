@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #srtmerfter
 This is a srt subtitle file tool.It can shift time and merge two srt files.
 
@@ -9,3 +10,7 @@ This is a srt subtitle file tool.It can shift time and merge two srt files.
 This program is using fgets() to read srt file lines, And the Mac file EOL is CR, Which cause it cannot process the Mac file format correctly.
 So better convert file format to unix or dos before use it.
 
+=======
+# srtmerfter
+A C program which can shift subtitle srt files time and merge srt files.
+>>>>>>> ffb661c7444505983561ee37e723e052c927d01f
