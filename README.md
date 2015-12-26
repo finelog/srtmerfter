@@ -1,2 +1,2 @@
 # srtmerfter
-A C program which can shift subtitle srt files time and merge srt files/
+A C program which can shift subtitle srt files time and merge srt files.
